@@ -1,6 +1,6 @@
 # MVP Release Audit
 
-Audit date: 2026-10-21
+Audit date: 2026-11-07
 
 ## Candidate scope
 
@@ -20,11 +20,11 @@ dashboard, privacy behavior, and activity backup and restore.
 | PHP Mess Detector | Completed without errors; advisory complexity findings remain |
 | Front-end production build | Passed with no tracked bundle changes |
 | PHPUnit | Passed: 36 tests, 242 assertions |
-| Browser scenarios | Passed: 2 scenarios, 47 steps |
+| Browser scenarios | Passed: 3 scenarios, 59 steps |
 | Hosted compatibility matrix | Passed: Moodle 5.0, 5.2, and 5.3; PHP 8.2–8.4; PostgreSQL 16–17 |
 | Hosted Mustache lint | Passed on Moodle's legacy and `public/` plugin layouts |
 | Legacy migration rehearsal | Passed: 1 test, 20 assertions |
-| Local Moodle upgrade | Passed for release-candidate version `2026102100` |
+| Local Moodle upgrade | Passed for release-candidate version `2026110700` |
 | Development data preservation | Confirmed: the test student's two cards remained at 0.5 mastery after upgrade |
 | Live browser smoke test | Passed: activity, repository, and return navigation loaded without console errors |
 
@@ -36,7 +36,7 @@ activity, card, mastery, session, and attempt identities and counts survive.
 
 All defined MVP release gates are passing. Pull request #8 targets
 `biblemesh/moodle-mod_adaptivereview:bm-main` with release-candidate metadata
-`1.0.0-rc1` and plugin version `2026102100`.
+`1.0.0-rc2` and plugin version `2026110700`.
 
 ## Non-blocking observations
 

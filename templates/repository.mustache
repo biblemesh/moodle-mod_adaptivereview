@@ -148,7 +148,7 @@
                             <input class="form-control" type="text" name="category" value="{{#editcard}}{{category}}{{/editcard}}">
                         </div>
                         <button class="btn btn-primary" type="submit">{{#editcard}}{{#str}}savechanges{{/str}}{{/editcard}}{{^editcard}}{{#str}}addcard, mod_adaptivereview{{/str}}{{/editcard}}</button>
-                        {{#editcard}}<a class="btn btn-secondary" href="{{baseurl}}?setid={{selectedset.id}}">{{#str}}cancel{{/str}}</a>{{/editcard}}
+                        {{#editcard}}<a class="btn btn-secondary" href="{{cancelurl}}">{{#str}}cancel{{/str}}</a>{{/editcard}}
                     </form>
                 </div>
             </div>

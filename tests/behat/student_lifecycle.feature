@@ -34,6 +34,16 @@ Feature: Repository-backed Adaptive Review lifecycle
     And I should see "4.5"
     And I should not see "Adaptive Review Repository"
 
+  Scenario: A repository author can cancel a card edit without losing the selected set
+    Given I am on the "Source Set" "adaptivereview activity" page logged in as admin
+    When I follow "Adaptive Review Repository"
+    And I set the field "question" to "Cancel-link regression card"
+    And I set the field "answer" to "Regression answer"
+    And I press "Save Card"
+    And I click on "Edit" "link"
+    And I click on "Cancel" "link"
+    Then the url should match "/repository\.php\?cmid=[0-9]+&setid=[0-9]+$"
+
   Scenario: A student completes a new-card review session
     Given I am on the "Source Set" "adaptivereview activity" page logged in as student1
     And I should see "Set Mastery"

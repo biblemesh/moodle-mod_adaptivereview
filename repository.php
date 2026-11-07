@@ -283,6 +283,7 @@ $templatedata = [
         'hint' => $editcard->hint ?? '',
         'category' => $editcard->category ?? '',
         'setcount' => $editcard->setcount,
+        'cancelurl' => $returnurl((int) $selectedset->id)->out(false),
     ] : false,
     'activityreturn' => $cm && $activity ? [
         'url' => (new moodle_url('/mod/adaptivereview/view.php', ['id' => $cm->id]))->out(false),

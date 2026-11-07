@@ -2,6 +2,12 @@
 
 Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokumentiert.
 
+## [1.0.0-rc2] - 2026-11-07 (Staging Acceptance Fix)
+
+### Fixed
+- Kept the selected repository set when cancelling a card edit from an activity-scoped repository URL.
+- Added browser regression coverage for the activity context and selected-set query parameters.
+
 ## [1.0.0-rc1] - 2026-10-21 (MVP Release Candidate)
 
 ### Changed
