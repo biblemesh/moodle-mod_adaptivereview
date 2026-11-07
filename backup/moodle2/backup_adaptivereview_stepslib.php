@@ -15,6 +15,8 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
+ * Activity backup structure for Adaptive Review.
+ *
  * @package   mod_adaptivereview
  * @copyright 2026 Peter Pleimfeldner
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
@@ -22,23 +24,44 @@
 
 defined('MOODLE_INTERNAL') || die();
 
+/**
+ * Defines the data tree included in an Adaptive Review activity backup.
+ */
 class backup_adaptivereview_activity_structure_step extends backup_activity_structure_step {
+    /**
+     * Build and prepare the activity backup structure.
+     *
+     * @return backup_nested_element Prepared activity structure.
+     */
     protected function define_structure() {
 
         // Define each element separated.
         $adaptivereview = new backup_nested_element('adaptivereview', ['id'], [
-            'course', 'name', 'intro', 'introformat', 'itemorder',
-            'completion_min_items', 'completion_min_mastered', 'completion_all_mastered', 'timecreated', 'timemodified'
+            'course', 'name', 'intro', 'introformat', 'masterygoal', 'itemorder',
+            'completion_min_items', 'completion_min_mastered', 'completion_all_mastered', 'timecreated', 'timemodified',
         ]);
 
         $items = new backup_nested_element('items');
         $item = new backup_nested_element('item', ['id'], [
-            'question', 'answer', 'hint', 'category'
+            'question', 'answer', 'hint', 'category', 'archived', 'sortorder',
         ]);
 
         $masteries = new backup_nested_element('masteries');
         $mastery = new backup_nested_element('mastery', ['id'], [
-            'userid', 'box_number', 'status', 'count_correct', 'count_wrong', 'last_reviewed'
+            'userid', 'box_number', 'status', 'count_correct', 'count_wrong', 'last_reviewed',
+            'masteryscore', 'requiredintervaldays', 'nextreviewdate', 'lastreviewdate',
+        ]);
+
+        $sessions = new backup_nested_element('sessions');
+        $session = new backup_nested_element('session', ['id'], [
+            'userid', 'mode', 'timecreated', 'timecompleted',
+        ]);
+        $attempts = new backup_nested_element('attempts');
+        $attempt = new backup_nested_element('attempt', ['id'], [
+            'cardid', 'attemptnumber', 'response', 'wasdue', 'isremediation',
+            'masteryeligible', 'masterybefore', 'masterygain', 'masteryafter',
+            'intervalbefore', 'intervalafter', 'previousreviewdate', 'previousduedate',
+            'nextreviewdate', 'algorithmversion', 'timecreated',
         ]);
 
         // Build the tree.
@@ -47,18 +70,46 @@ class backup_adaptivereview_activity_structure_step extends backup_activity_stru
 
         $item->add_child($masteries);
         $masteries->add_child($mastery);
+        $adaptivereview->add_child($sessions);
+        $sessions->add_child($session);
+        $session->add_child($attempts);
+        $attempts->add_child($attempt);
 
         // Define sources.
         $adaptivereview->set_source_table('adaptivereview', ['id' => backup::VAR_ACTIVITYID]);
-        $item->set_source_table('adaptivereview_items', ['adaptivereviewid' => backup::VAR_PARENTID]);
+        $item->set_source_sql(
+            "SELECT c.*, sc.sortorder
+               FROM {adaptivereview_cards} c
+               JOIN {adaptivereview_set_cards} sc ON sc.cardid = c.id
+               JOIN {adaptivereview} ar ON ar.setid = sc.setid
+              WHERE ar.id = ?",
+            [backup::VAR_ACTIVITYID]
+        );
 
         // Export user progress only if userinfo is included in the backup.
         if ($this->get_setting_value('userinfo')) {
-            $mastery->set_source_table('adaptivereview_mastery', ['itemid' => backup::VAR_PARENTID]);
+            // Lifelong mastery is global. Only include learners who actually
+            // have a review session in this activity, never every user who has
+            // encountered the shared card elsewhere.
+            $mastery->set_source_sql(
+                "SELECT m.*
+                   FROM {adaptivereview_mastery} m
+                  WHERE m.cardid = ?
+                    AND EXISTS (
+                        SELECT 1
+                          FROM {adaptivereview_sessions} s
+                         WHERE s.adaptivereviewid = ?
+                           AND s.userid = m.userid
+                    )",
+                [backup::VAR_PARENTID, backup::VAR_ACTIVITYID]
+            );
+            $session->set_source_table('adaptivereview_sessions', ['adaptivereviewid' => backup::VAR_PARENTID]);
+            $attempt->set_source_table('adaptivereview_attempts', ['sessionid' => backup::VAR_PARENTID]);
         }
 
         // Define id annotations to ensure accurate restoration of users and contexts.
         $mastery->annotate_ids('user', 'userid');
+        $session->annotate_ids('user', 'userid');
 
         // Annotate file areas (intro text files).
         $adaptivereview->annotate_files('mod_adaptivereview', 'intro', null); // Intro might have embedded images

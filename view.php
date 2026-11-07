@@ -1,5 +1,5 @@
 <?php
-// This file is part of Moodle - http://moodle.org/
+// This file is part of Moodle - https://moodle.org/
 //
 // Moodle is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -12,13 +12,18 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
+ * Student dashboard page for mod_adaptivereview.
+ *
+ * Uses the Moodle Output API and the bundled JavaScript application.
+ *
  * @package   mod_adaptivereview
  * @copyright 2026 Peter Pleimfeldner
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
 require_once('../../config.php');
 require_once(__DIR__ . '/lib.php');
 
@@ -39,20 +44,19 @@ $PAGE->set_title(format_string($adaptivereview->name));
 $PAGE->set_heading(format_string($course->fullname));
 $PAGE->set_context($context);
 
-// Include standard Moodle JS for ajax if needed.
-$PAGE->requires->js_call_amd('core/ajax', 'init');
-
 // Export strings for Vue frontend
 $vuestrings = [
-    'dashboardtitle', 'dashboardsbtitle', 'howitworks', 'cards', 'systemtitle', 
-    'systemintro', 'known_btn', 'known_desc', 'again_btn', 'again_desc', 
-    'hard_btn', 'hard_desc', 'systemtip', 'gotit', 'showhint', 'hint',
-    'taptoflip', 'action_back', 'action_stay', 'action_next', 'backtodashboard', 
-    'cardxofy_x', 'cardxofy_y', 'loadingcards', 'sessiondone', 'sessiondonedesc', 
-    'completed', 'error_loading_cards', 'box0', 'box1', 'box2', 'box3', 'box4', 'box5', 'queue_due', 'queue_new', 'queue_recent', 'queue_all',
+    'dashboardtitle', 'dashboardsbtitle', 'howitworks', 'cards', 'systemtitle',
+    'systemintro', 'known_btn', 'known_desc', 'notyet_btn', 'notyet_desc',
+    'systemtip', 'gotit', 'showhint', 'hint',
+    'taptoflip', 'action_back', 'action_stay', 'action_next', 'backtodashboard',
+    'cardxofy_x', 'cardxofy_y', 'loadingcards', 'sessiondone', 'sessiondonedesc',
+    'completed', 'error_loading_cards', 'error_saving_answer', 'box0', 'box1', 'box2', 'box3', 'box4', 'box5', 'queue_due', 'queue_new', 'queue_recent', 'queue_all',
+    'newcardaccess', 'newcardaccessdue',
     'reset_progress', 'reset_progress_confirm_title', 'reset_progress_confirm_msg',
     'reset_progress_btn', 'reset_progress_cancel', 'reset_progress_done',
     'progress_label', 'progress_aria',
+    'set_mastery', 'progress_toward_goal', 'cards_at_goal', 'goal',
     'feedback_grand_title', 'feedback_grand_desc', 'feedback_perfect_title', 'feedback_perfect_desc',
     'feedback_good_title', 'feedback_good_desc', 'feedback_okay_title', 'feedback_okay_desc',
     'feedback_learn_title', 'feedback_learn_desc',
@@ -88,12 +92,13 @@ $appdata = [
     'sesskey'    => sesskey(),
     'instanceid' => (int)$adaptivereview->id,
     'cmid'       => (int)$cm->id,
+    'masterygoal' => (float)$adaptivereview->masterygoal,
 ];
 
 // Mount point for Vue
 echo \html_writer::tag('div', '', [
     'id' => 'v-app-mod-adaptivereview',
-    'data-config' => json_encode($appdata)
+    'data-config' => json_encode($appdata),
 ]);
 
 // Include Vue build scripts manually with cache-busting

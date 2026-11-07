@@ -2,6 +2,7 @@
   <div class="min-h-[600px] w-full bg-slate-50 font-sans text-slate-900 py-6 px-4 rounded-3xl" style="font-family: 'Inter', system-ui, sans-serif;">
     <Dashboard
       v-if="!sessionActive && !allCardsMode && !recentChoiceMode"
+      :mastery-goal="masteryGoal"
       @start-session="handleStartSession"
     />
 
@@ -85,6 +86,10 @@
       <CardList
         :cards="allCards"
         :mastery-goal="masteryGoal"
+        :set-mastery="studentSummary.setmastery"
+        :progress-percent="studentSummary.progresspercent"
+        :cards-at-goal="studentSummary.cardsatgoal"
+        :total-cards="studentSummary.totalcards"
         @review-card="handleLibraryCard"
       />
     </div>
@@ -176,7 +181,20 @@ import { ref, computed } from 'vue';
 import Dashboard from './components/Dashboard.vue';
 import Card from './components/Card.vue';
 import CardList from './components/CardList.vue';
-import { getCardsByBox, submitAnswer } from './api';
+import {
+    completeReviewSession,
+    getCardsByBox,
+    getStudentSummary,
+    startReviewSession,
+    submitAnswer,
+} from './api';
+
+const props = defineProps({
+    masteryGoal: {
+        type: Number,
+        default: 4.0,
+    },
+});
 
 const FALLBACKS = {
     feedback_perfect_title: 'Strong result',
@@ -193,6 +211,7 @@ const FALLBACKS = {
     cardxofy_x: 'Card',
     cardxofy_y: 'of',
     error_loading_cards: 'Error loading cards.',
+    error_saving_answer: 'Your answer could not be saved. Please try again.',
     box0: 'Due Today',
     box1: 'New',
     box2: 'Recently Learned',
@@ -205,7 +224,7 @@ const getString = (key) => {
     return FALLBACKS[key] ?? key;
 };
 
-const masteryGoal = ref(4.0);
+const masteryGoal = ref(props.masteryGoal);
 const sessionActive = ref(false);
 const sessionFinished = ref(false);
 const allCardsMode = ref(false);
@@ -219,6 +238,14 @@ const currentCardIndex = ref(0);
 const sessionStats = ref({ known: 0, again: 0, hard: 0 });
 const reviewMode = ref('review');
 const firstSessionResponses = ref({});
+const reviewSessionKey = ref(null);
+const pendingAnswerSave = ref(null);
+const studentSummary = ref({
+    setmastery: 0,
+    progresspercent: 0,
+    cardsatgoal: 0,
+    totalcards: 0,
+});
 
 const currentCard = computed(() => sessionCards.value[currentCardIndex.value]);
 
@@ -269,6 +296,7 @@ const resetSessionState = () => {
     currentCardIndex.value = 0;
     sessionStats.value = { known: 0, again: 0, hard: 0 };
     firstSessionResponses.value = {};
+    pendingAnswerSave.value = null;
 };
 
 const handleStartSession = async (boxnumber) => {
@@ -282,10 +310,15 @@ const handleStartSession = async (boxnumber) => {
     reviewMode.value = 'review';
 
     try {
-        const cards = await getCardsByBox(boxnumber);
+        const requests = [getCardsByBox(boxnumber)];
+        if (boxnumber === 3) {
+            requests.push(getStudentSummary());
+        }
+        const [cards, summary] = await Promise.all(requests);
 
         if (boxnumber === 3) {
             allCards.value = cards;
+            studentSummary.value = summary;
             allCardsMode.value = true;
             return;
         }
@@ -296,6 +329,7 @@ const handleStartSession = async (boxnumber) => {
             return;
         }
 
+        reviewSessionKey.value = await startReviewSession(boxnumber === 0 ? 'due' : 'new');
         sessionCards.value = cards;
         sessionActive.value = true;
     } catch (e) {
@@ -317,12 +351,21 @@ const startRecentBrowse = () => {
     resetSessionState();
 };
 
-const startRecentPractice = () => {
-    sessionCards.value = [...recentCards.value];
-    recentChoiceMode.value = false;
-    sessionActive.value = true;
-    reviewMode.value = 'review';
-    resetSessionState();
+const startRecentPractice = async () => {
+    loading.value = true;
+    try {
+        reviewSessionKey.value = await startReviewSession('early');
+        sessionCards.value = [...recentCards.value];
+        recentChoiceMode.value = false;
+        sessionActive.value = true;
+        reviewMode.value = 'review';
+        resetSessionState();
+    } catch (e) {
+        console.error('Error starting early practice:', e);
+        alert(getString('error_loading_cards'));
+    } finally {
+        loading.value = false;
+    }
 };
 
 const handleLibraryCard = (card) => {
@@ -335,8 +378,8 @@ const handleLibraryCard = (card) => {
     currentCardIndex.value = 0;
 };
 
-const handleAnswer = async ({ card, result }) => {
-    if (!card || reviewMode.value !== 'review') {
+const handleAnswer = ({ card, result }) => {
+    if (!card || reviewMode.value !== 'review' || !reviewSessionKey.value) {
         return;
     }
 
@@ -347,22 +390,36 @@ const handleAnswer = async ({ card, result }) => {
 
         if (result === 'know') {
             sessionStats.value.known++;
-            submitAnswer(card.id, 2).catch(e => {
-                console.error('Failed to save known answer for card', card.id, e);
-            });
         } else {
             sessionStats.value.hard++;
-            submitAnswer(card.id, 0).catch(e => {
-                console.error('Failed to save not-yet answer for card', card.id, e);
-            });
         }
     }
+
+    pendingAnswerSave.value = submitAnswer(card.id, result, reviewSessionKey.value);
 };
 
-const handleContinue = ({ result }) => {
+const handleContinue = async ({ result }) => {
     if (reviewMode.value === 'browse') {
         goNextOrFinish();
         return;
+    }
+
+    if (pendingAnswerSave.value) {
+        try {
+            await pendingAnswerSave.value;
+            pendingAnswerSave.value = null;
+        } catch (e) {
+            console.error('Failed to save answer', e);
+            if (currentCard.value && reviewSessionKey.value) {
+                pendingAnswerSave.value = submitAnswer(
+                    currentCard.value.id,
+                    result,
+                    reviewSessionKey.value
+                );
+            }
+            alert(getString('error_saving_answer'));
+            return;
+        }
     }
 
     if (result === 'notyet' && currentCard.value) {
@@ -396,7 +453,19 @@ const goNext = () => {
     goNextOrFinish();
 };
 
-const endSession = () => {
+const endSession = async () => {
+    if (pendingAnswerSave.value) {
+        try {
+            await pendingAnswerSave.value;
+        } catch (e) {
+            console.error('Failed to save answer before ending the session', e);
+            alert(getString('error_saving_answer'));
+            return;
+        }
+    }
+
+    const sessionkey = reviewSessionKey.value;
+
     sessionActive.value = false;
     sessionFinished.value = false;
     allCardsMode.value = false;
@@ -409,6 +478,14 @@ const endSession = () => {
     sessionStats.value = { known: 0, again: 0, hard: 0 };
     firstSessionResponses.value = {};
     reviewMode.value = 'review';
+    reviewSessionKey.value = null;
+    pendingAnswerSave.value = null;
+
+    if (sessionkey) {
+        completeReviewSession(sessionkey).catch(e => {
+            console.error('Failed to complete review session', e);
+        });
+    }
 };
 </script>
 

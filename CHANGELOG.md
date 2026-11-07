@@ -2,6 +2,143 @@
 
 Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokumentiert.
 
+## [1.0.0-rc2] - 2026-11-07 (Staging Acceptance Fix)
+
+### Fixed
+- Kept the selected repository set when cancelling a card edit from an activity-scoped repository URL.
+- Added browser regression coverage for the activity context and selected-set query parameters.
+
+## [1.0.0-rc1] - 2026-10-21 (MVP Release Candidate)
+
+### Changed
+- Promoted the global repository and `mastery-v1` implementation to its first MVP release candidate.
+- Completed the four-job Moodle 5.0, 5.2, and 5.3 compatibility matrix across PHP 8.2–8.4 and PostgreSQL 16–17.
+- Added cross-version Mustache lint support for Moodle's legacy and `public/` plugin layouts.
+- Added repository-template example data for standards-compliant HTML validation.
+- Hardened hosted browser tests for Moodle 5.3's slower Tiny editor initialization on shared runners.
+
+## [0.9.0-prototype] - 2026-10-20 (Moodle Lifecycle Coverage)
+
+### Added
+- Added privacy coverage that separates global lifelong mastery from activity-specific review history.
+- Added real backup/restore integration coverage for shared cards, participating users, archived content, sessions, and attempts.
+- Added browser scenarios for repository-set reuse and a student's complete new-card review session.
+- Added permission and archival-history regression coverage.
+- Added administrator setup and dedicated repository-author role documentation.
+- Added an evidence-based MVP release audit with explicit local pass results and remaining CI gates.
+
+### Changed
+- Activity-level privacy deletion now preserves global mastery while system-level erasure removes it and anonymizes repository authorship.
+- Cleared the Moodle Code Checker error baseline through mechanical formatting, Moodle-style naming, and API documentation.
+- User-data backups include mastery only for students who participated in the backed-up activity.
+- Restores preserve archived card state and correctly remap mastery, session, and attempt relationships into an isolated restored set.
+- Tutorial-card HTML now satisfies the review service contract and opens correctly in a new activity.
+- Completed and verified Step 6 of the global repository MVP roadmap.
+
+## [0.8.0-prototype] - 2026-10-18 (Authoritative Student Experience)
+
+### Added
+- Added a server-owned student summary for Due Today, New, Recently Learned, and All Cards.
+- Added Set Mastery, activity-specific mastery goals, per-card goal progress, and cards-at-goal reporting.
+- Added automated coverage for shared-set summaries and read-only card browsing.
+
+### Changed
+- The dashboard now displays authoritative global card state instead of calculating progress from rounded browser data.
+- New cards remain visible as a count while due reviews temporarily lock the New queue.
+- All Cards remains browse-only and cannot create mastery, session, or attempt evidence.
+- Updated student language to the approved `I Know It` / `Not Yet` mastery model.
+
+## [0.7.0-prototype] - 2026-10-17 (Mastery-v1 Scheduler Milestone)
+
+### Added
+- Added deterministic coverage for the approved 29-day perfect-retrieval path from a new card to 3.0 mastery.
+- Added explicit protection proving that immediate same-session remediation cannot earn mastery.
+- Added coverage proving that three-decimal stored mastery is displayed to students at one decimal.
+
+### Changed
+- Marked Step 4 of the global repository MVP roadmap complete after auditing every scheduler exit criterion.
+
+## [0.6.1-prototype] - 2026-10-16 (Repository Navigation)
+
+### Changed
+- Kept the originating Adaptive Review activity navigation visible in the global repository.
+- Added an explicit return button from the repository to the originating activity.
+
+## [0.6.0-prototype] - 2026-10-16 (Instructor Repository Integration)
+
+### Added
+- Added an activity-form chooser for reusing active repository sets.
+- Added global set and card management for authorized repository authors.
+- Added set search, creation, metadata editing, independent duplication, ordering, and archival restoration.
+- Added card search, creation, shared editing warnings, reuse, ordering, removal, archival, and restoration.
+- Added regression coverage for activity set reuse and repository authoring operations.
+
+### Changed
+- New activities create tutorial cards only when the instructor chooses to create a new set.
+- Removing a card from a set preserves the global card and its lifelong mastery history.
+- Rewrote tutorial cards to use mastery, retrieval, and two-response language instead of legacy deck terminology.
+
+## [Unreleased] - Global Repository MVP Test Foundation
+
+### Added
+- Added the global repository MVP roadmap and migration acceptance contract.
+- Added an automated legacy-data fixture covering activities, duplicate card text, mastery, sessions, and attempts.
+- Documented the isolated local PHPUnit workflow.
+- Added global cards, reusable sets, ordered set membership, archival state, and repository authorship metadata.
+- Added an activity-specific Set Mastery goal and global repository management capability.
+- Added a migration rehearsal that preserves card, mastery, session, and attempt identities.
+- Added shared-card coverage proving that mastery follows the student-card pair across activities.
+- Added the `mastery-v1` scheduler with mastery-based intervals of 1, 3, 7, 15, 21, 30, 60, 90, 150, and 270 days.
+- Added proportional early-review and recovery-review gains, capped at `+0.5` per successful review.
+- Added deterministic scheduler coverage for boundaries, early and late review, recovery, repeated failure, and the 5.9 cap.
+
+### Changed
+- Raised the declared minimum to Moodle 5.0, matching the project's supported platform.
+- Updated CI coverage to Moodle 5.0, 5.2, and 5.3 with supported PHP and PostgreSQL versions.
+- Migrated activity-owned cards into one repository set per existing activity without merging duplicate text.
+- Renamed mastery and attempt references from `itemid` to stable global `cardid` references.
+- Updated student review, completion, management, privacy, and backup/restore paths for repository-backed cards.
+- Restores create an isolated imported set rather than matching unrelated content by text.
+- Incorrect responses preserve mastery and progressively shorten only the active recovery interval.
+- Increased stored mastery precision to three decimal places while retaining one-decimal display values.
+- A card reaching 1.0 mastery after its second successful review now moves to a three-day interval.
+- Adopted the semester-paced half-point schedule through 5.9 mastery, including the 60-day 4.0 interval.
+
+## [0.5.1-prototype] - 2026-10-16 (Uncapped New-Card Access)
+
+### Changed
+- Removed the daily new-card cap. All unstarted cards are available once due reviews are complete.
+- Retained server-enforced due-review priority and unrestricted browse-only access.
+
+## [0.5.0-prototype] - 2026-10-16 (New-Card Pacing MVP)
+
+### Added
+- Added server-enforced pacing of up to five new cards per activity and student day.
+- Added due-review priority while keeping the complete set available in browse-only mode.
+- Added dashboard guidance explaining the daily allowance and due-review priority.
+- Added automated coverage for queue limits, browse access, and direct-request bypass attempts.
+
+## [0.2.0-prototype] - 2026-08-18 (Persistent Review History Foundation)
+
+### Added
+- Server-owned review sessions for Due, New, and early-practice flows.
+- Append-only attempt history that records first attempts and same-session remediation.
+- Mastery eligibility, scheduling snapshots, and algorithm-version evidence for every attempt.
+- Moodle privacy export/deletion and backup/restore coverage for review history.
+
+### Changed
+- Replaced the legacy Red/Yellow/Green service contract with `I Know It` / `Not Yet` responses.
+- Early practice and same-session repeats are recorded without changing mastery or scheduling.
+- `Not Yet` preserves accumulated mastery and creates only a temporary one-day recovery schedule.
+- Disabled the unapproved prototype mastery-gain scheduler. `history-v1` records zero mastery gain until the real formula is approved.
+- Reset Learning Progress clears current summary state while retaining review history for audit.
+
+### Migration
+- Added `adaptivereview_sessions` and `adaptivereview_attempts` tables.
+- Cleared mastery summary rows generated by the invalid prototype algorithm. Course, activity, and card content is preserved.
+
+---
+
 ## [1.5.12] - 2026-03-31 (Fix: js_call_amd 1024-Zeichen-Limit)
 
 ### Behoben

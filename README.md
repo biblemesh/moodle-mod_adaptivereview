@@ -10,31 +10,37 @@ Current prototype includes:
 
 - Modern Vue 3 dashboard
 - Individual card mastery tracking
+- Persistent review-session and attempt history
+- Global card identities and reusable repository sets
+- Lifelong student-card mastery shared across course activities
+- Activity-specific Set Mastery goals
 - Set Mastery progress dashboard
 - Instructor-defined mastery goals
 - Searchable All Cards library
 - Retrieval-first review workflow
 - "I Know It" / "Not Yet" review interface
 - Recently Learned browse and practice modes
-- Moodle gradebook integration
 - Responsive user interface
+
+Administrator installation, repository permissions, privacy behavior, and
+backup policy are documented in
+[`docs/administrator-setup.md`](docs/administrator-setup.md).
 
 ## Planned Features
 
-The long-term vision includes:
+Post-MVP enhancements include:
 
-- Time-based adaptive scheduling engine
-- Global card repository
-- Reusable card sets across multiple courses
-- Shared institutional content libraries
 - CSV import/export
 - Analytics dashboard
-- Instructor authoring tools
-- Advanced mastery algorithms
+- Confidence and difficulty weighting
+- Personalized interval adjustment
+- Competency and learning-outcome mapping
+- Program-level mastery analytics
+- Moodle gradebook integration based on instructor Goals
 
 ## Technology
 
-- Moodle 5.x
+- Moodle 5.0 or later
 - PHP
 - Vue 3
 - Tailwind CSS
@@ -54,11 +60,39 @@ The long-term vision includes:
 
 4. Configure the activity inside a Moodle course.
 
+## Testing
+
+The automated suite uses Moodle's isolated PHPUnit prefix and dataroot. It must
+never use the live `m_` table prefix or `/var/www/moodledata` directory.
+
+For this Moodle Docker checkout, initialize and run the plugin suite from the
+webserver container:
+
+```bash
+cd /var/www/html
+composer install --no-interaction
+php public/admin/tool/phpunit/cli/init.php --disable-composer
+vendor/bin/phpunit --testsuite mod_adaptivereview_testsuite
+```
+
+The local `config.php` must define a non-production `$CFG->phpunit_prefix` and
+`$CFG->phpunit_dataroot`. The current Docker configuration uses `t_` and
+`/var/www/phpunitdata` respectively.
+
+The GitHub Actions matrix covers the minimum Moodle 5.0 release and current
+Moodle 5.2 and 5.3 lines on supported PHP and PostgreSQL versions.
+
 ## Current Status
 
 Adaptive Review is currently under active development.
 
-The current version demonstrates the user interface, mastery workflow, and activity structure. The adaptive scheduling engine is planned for a future development phase.
+The current MVP candidate includes the global repository, reusable sets,
+course-integrated set selection, lifelong student-card mastery, the
+`mastery-v1` scheduler, the authoritative student dashboard, and Moodle
+privacy and backup/restore lifecycle coverage.
+
+Release qualification results and remaining gates are recorded in
+[`docs/mvp-release-audit.md`](docs/mvp-release-audit.md).
 
 ## License
 

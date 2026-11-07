@@ -15,6 +15,8 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
+ * Core callbacks for the Adaptive Review activity module.
+ *
  * @package   mod_adaptivereview
  * @copyright 2026 Peter Pleimfeldner
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
@@ -28,7 +30,30 @@ defined('MOODLE_INTERNAL') || die();
  * @return int The instance ID
  */
 function adaptivereview_add_instance($adaptivereview) {
-    global $DB;
+    global $DB, $USER;
+    $transaction = $DB->start_delegated_transaction();
+    $now = time();
+
+    $setid = (int) ($adaptivereview->setid ?? 0);
+    $createset = $setid === 0;
+    if ($createset) {
+        $setid = $DB->insert_record('adaptivereview_sets', (object) [
+            'name' => $adaptivereview->name,
+            'description' => $adaptivereview->intro ?? '',
+            'descriptionformat' => $adaptivereview->introformat ?? FORMAT_HTML,
+            'defaultmasterygoal' => $adaptivereview->masterygoal ?? 4.0,
+            'archived' => 0,
+            'createdby' => $USER->id ?? 0,
+            'modifiedby' => $USER->id ?? 0,
+            'timecreated' => $now,
+            'timemodified' => $now,
+        ]);
+    } else {
+        $DB->get_record('adaptivereview_sets', ['id' => $setid, 'archived' => 0], 'id', MUST_EXIST);
+    }
+
+    $adaptivereview->setid = $setid;
+    $adaptivereview->masterygoal ??= 4.0;
     $adaptivereview->timecreated = time();
     $adaptivereview->timemodified = $adaptivereview->timecreated;
     $id = $DB->insert_record('adaptivereview', $adaptivereview);
@@ -36,7 +61,7 @@ function adaptivereview_add_instance($adaptivereview) {
     // Insert tutorial demo cards using language-neutral marker keys.
     // The markers (e.g. ##demo_q1##) are resolved to the user's language
     // at display time in external.php, so the correct language is always shown.
-    $demo_cards = [
+    $democards = [
         ['adaptivereviewid' => $id, 'category' => 'demo', 'question' => '##demo_q1##', 'answer' => '##demo_a1##', 'hint' => '##demo_h1##'],
         ['adaptivereviewid' => $id, 'category' => 'demo', 'question' => '##demo_q2##', 'answer' => '##demo_a2##', 'hint' => '##demo_h2##'],
         ['adaptivereviewid' => $id, 'category' => 'demo', 'question' => '##demo_q3##', 'answer' => '##demo_a3##', 'hint' => '##demo_h3##'],
@@ -44,10 +69,25 @@ function adaptivereview_add_instance($adaptivereview) {
         ['adaptivereviewid' => $id, 'category' => 'demo', 'question' => '##demo_q5##', 'answer' => '##demo_a5##', 'hint' => '##demo_h5##'],
     ];
 
-    foreach ($demo_cards as $card) {
-        $DB->insert_record('adaptivereview_items', (object)$card);
+    foreach ($createset ? $democards : [] as $sortorder => $card) {
+        unset($card['adaptivereviewid']);
+        $card += [
+            'archived' => 0,
+            'createdby' => $USER->id ?? 0,
+            'modifiedby' => $USER->id ?? 0,
+            'timecreated' => $now,
+            'timemodified' => $now,
+        ];
+        $cardid = $DB->insert_record('adaptivereview_cards', (object) $card);
+        $DB->insert_record('adaptivereview_set_cards', (object) [
+            'setid' => $setid,
+            'cardid' => $cardid,
+            'sortorder' => $sortorder,
+            'timecreated' => $now,
+        ]);
     }
 
+    $transaction->allow_commit();
     return $id;
 }
 
@@ -59,6 +99,12 @@ function adaptivereview_add_instance($adaptivereview) {
  */
 function adaptivereview_update_instance($adaptivereview) {
     global $DB;
+    if (!empty($adaptivereview->setid)) {
+        $DB->get_record('adaptivereview_sets', [
+            'id' => $adaptivereview->setid,
+            'archived' => 0,
+        ], 'id', MUST_EXIST);
+    }
     $adaptivereview->timemodified = time();
     $adaptivereview->id = $adaptivereview->instance;
     return $DB->update_record('adaptivereview', $adaptivereview);
@@ -75,15 +121,21 @@ function adaptivereview_delete_instance($id) {
     if (!$adaptivereview = $DB->get_record('adaptivereview', ['id' => $id])) {
         return false;
     }
-    
-    $sql = "SELECT id FROM {adaptivereview_items} WHERE adaptivereviewid = ?";
-    if ($cards = $DB->get_records_sql($sql, [$id])) {
-        list($in, $params) = $DB->get_in_or_equal(array_keys($cards));
-        $DB->delete_records_select('adaptivereview_mastery', "itemid $in", $params);
+
+    $sessionids = $DB->get_fieldset_select('adaptivereview_sessions', 'id', 'adaptivereviewid = ?', [$id]);
+    if ($sessionids) {
+        [$insql, $params] = $DB->get_in_or_equal($sessionids);
+        $DB->delete_records_select('adaptivereview_attempts', "sessionid $insql", $params);
     }
-    
-    $DB->delete_records('adaptivereview_items', ['adaptivereviewid' => $id]);
+
+    $DB->delete_records('adaptivereview_sessions', ['adaptivereviewid' => $id]);
     $DB->delete_records('adaptivereview', ['id' => $id]);
+
+    // Shared repository content and lifelong mastery must survive course deletion.
+    if (!$DB->record_exists('adaptivereview', ['setid' => $adaptivereview->setid])) {
+        $DB->set_field('adaptivereview_sets', 'archived', 1, ['id' => $adaptivereview->setid]);
+        $DB->set_field('adaptivereview_sets', 'timemodified', time(), ['id' => $adaptivereview->setid]);
+    }
     return true;
 }
 
@@ -94,13 +146,19 @@ function adaptivereview_delete_instance($id) {
  * @return mixed
  */
 function adaptivereview_supports($feature) {
-    switch($feature) {
-        case FEATURE_MOD_INTRO: return true;
-        case FEATURE_SHOW_DESCRIPTION: return true;
-        case FEATURE_COMPLETION_TRACKS_VIEWS: return true;
-        case FEATURE_COMPLETION_HAS_RULES: return true;
-        case FEATURE_BACKUP_MOODLE2: return true;
-        default: return null;
+    switch ($feature) {
+        case FEATURE_MOD_INTRO:
+            return true;
+        case FEATURE_SHOW_DESCRIPTION:
+            return true;
+        case FEATURE_COMPLETION_TRACKS_VIEWS:
+            return true;
+        case FEATURE_COMPLETION_HAS_RULES:
+            return true;
+        case FEATURE_BACKUP_MOODLE2:
+            return true;
+        default:
+            return null;
     }
 }
 
@@ -115,8 +173,11 @@ function adaptivereview_supports($feature) {
 function adaptivereview_get_coursemodule_info($coursemodule) {
     global $DB;
 
-    $adaptivereview = $DB->get_record('adaptivereview', ['id' => $coursemodule->instance],
-        'id, name, completion_min_items, completion_min_mastered, completion_all_mastered');
+    $adaptivereview = $DB->get_record(
+        'adaptivereview',
+        ['id' => $coursemodule->instance],
+        'id, name, completion_min_items, completion_min_mastered, completion_all_mastered'
+    );
     if (!$adaptivereview) {
         return false;
     }
@@ -199,5 +260,15 @@ function adaptivereview_extend_settings_navigation(settings_navigation $settings
             new pix_icon('i/settings', '')
         );
     }
-}
 
+    if (has_capability('mod/adaptivereview:manageglobalrepository', context_system::instance())) {
+        $adaptivereviewnode->add(
+            get_string('repositorytitle', 'mod_adaptivereview'),
+            new moodle_url('/mod/adaptivereview/repository.php', ['cmid' => $PAGE->cm->id]),
+            navigation_node::TYPE_SETTING,
+            null,
+            'adaptivereviewrepository',
+            new pix_icon('i/folder', '')
+        );
+    }
+}
